@@ -1,8 +1,14 @@
 {
+  "ocr": {
+    "poppler_path": "C:\\path\\to\\poppler\\Library\\bin"
+  },
   "recoru": {
-    "contract_id": "your_contract_id_here",
-    "login_id": "your_login_id_here",
-    "password": "your_password_here"
+    "contract_id": "your_contract_id",
+    "login_id": "your_login_id",
+    "password": "your_password",
+    "base_url": "https://app.recoru.in/ap/menuAttendance/?ui=YOUR_UI&pp=1",
+    "profile_path": "C:\\path\\to\\chrome_profile",
+    "login_retry_count": 3,
+    "login_retry_interval": 5
   }
 }
-

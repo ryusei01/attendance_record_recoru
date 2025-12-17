@@ -146,14 +146,14 @@ cp config.json.example config.json
 ```json
 {
   "ocr": {
-    "poppler_path": "C:\\poppler\\Library\\bin"
+    "poppler_path": "C:\\path\\to\\poppler\\Library\\bin"
   },
   "recoru": {
     "contract_id": "your_contract_id",
     "login_id": "your_login_id",
     "password": "your_password",
-    "base_url": "https://app.recoru.in/ap/menuAttendance/?ui=362&pp=1",
-    "profile_path": "H:\\document\\program\\project\\attendance_record_recoru\\chrome_profile",
+    "base_url": "https://app.recoru.in/ap/menuAttendance/?ui=YOUR_UI&pp=1",
+    "profile_path": "C:\\path\\to\\chrome_profile",
     "login_retry_count": 3,
     "login_retry_interval": 5
   }
@@ -163,7 +163,7 @@ cp config.json.example config.json
 **設定項目の説明**:
 
 - `ocr.poppler_path`: Poppler の bin ディレクトリパス（PDF 処理時に使用、PATH に通していない場合のみ必要）
-- `recoru.base_url`: Recoru の勤怠入力ページ URL（デフォルト: `https://app.recoru.in/ap/menuAttendance/?ui=362&pp=1`）
+- `recoru.base_url`: Recoru の勤怠入力ページ URL（例: `https://app.recoru.in/ap/menuAttendance/?ui=YOUR_UI&pp=1`）
 - `recoru.profile_path`: Chrome のプロファイルパス（ログイン状態を保持する場合に使用、空の場合はデフォルトプロファイル）
 - `recoru.login_retry_count`: ログイン失敗時のリトライ回数（デフォルト: 3 回）
 - `recoru.login_retry_interval`: ログインリトライ間隔（秒、デフォルト: 5 秒）
@@ -199,7 +199,7 @@ python main.py --file path/to/attendance.xlsx --validate-only
 python main.py --file path/to/attendance.xlsx --headless
 
 # RecoruのURLを指定
-python main.py --file path/to/attendance.xlsx --url "https://app.recoru.in/ap/menuAttendance/?ui=362&pp=1"
+python main.py --file path/to/attendance.xlsx --url "https://app.recoru.in/ap/menuAttendance/?ui=YOUR_UI&pp=1"
 
 # Chromeプロファイルパスを指定
 python main.py --file path/to/attendance.xlsx --profile "C:\\Users\\username\\AppData\\Local\\Google\\Chrome\\User Data"
