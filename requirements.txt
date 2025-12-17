@@ -1,0 +1,28 @@
+# OCR関連
+pytesseract>=0.3.10
+easyocr>=1.7.0
+
+# 画像処理
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Excel処理
+pandas>=2.0.0
+openpyxl>=3.1.0
+xlrd>=2.0.1
+
+# ブラウザ自動化
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# GUI（Streamlitを使用）
+streamlit>=1.28.0
+
+# PDF処理
+pdf2image>=1.16.0
+# 注意: Popplerはシステムレベルでインストールが必要です（README参照）
+
+# その他
+python-dateutil>=2.8.2
+pytz>=2023.3
+
