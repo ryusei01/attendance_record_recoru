@@ -509,6 +509,19 @@ def main():
             st.info(f"{len(st.session_state.validation_result['valid_records'])}件の有効なレコードを入力します")
             
             if st.button("自動入力を開始", type="primary"):
+                # 既存のブラウザがあれば閉じる
+                if 'recoru_client' in st.session_state:
+                    try:
+                        existing_client = st.session_state['recoru_client']
+                        if existing_client and hasattr(existing_client, 'driver') and existing_client.driver:
+                            existing_client.close()
+                            logger.info("既存のブラウザを閉じました")
+                    except Exception as e:
+                        logger.warning(f"既存のブラウザのクローズ中にエラー: {e}")
+                    finally:
+                        if 'recoru_client' in st.session_state:
+                            del st.session_state['recoru_client']
+                
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 log_area = st.empty()
@@ -519,7 +532,6 @@ def main():
                     logs.append(message)
                     log_area.text_area("実行ログ", "\n".join(logs), height=300)
                 
-                login_success = False
                 try:
                     # ログインリトライ設定を取得（configが読み込まれている場合）
                     login_retry_count = 3
@@ -549,7 +561,6 @@ def main():
                         st.session_state['recoru_client'] = client
                         return
                     
-                    login_success = True
                     logger.info("ログイン成功")
                     status_text.text("ログイン成功！勤怠データを入力中...")
                     
@@ -579,7 +590,7 @@ def main():
                     
                     # 結果表示
                     logger.info(f"入力処理完了: 成功={len(results['success'])}, 失敗={len(results['failed'])}")
-                    st.success("入力処理が完了しました！")
+                    st.success("入力処理が完了しました！ブラウザは開いたままです。")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -593,21 +604,21 @@ def main():
                             date_str = build_date_from_components(failed) or 'N/A'
                             day = failed.get('day', 'N/A')
                             st.write(f"- 日={day}, 日付={date_str}")
+                    
+                    # ブラウザを閉じずに保持
+                    st.session_state['recoru_client'] = client
                 
                 except Exception as e:
                     st.error(f"エラーが発生しました: {e}")
                     logger.error(f"エラー: {e}", exc_info=True)
-                    # エラー時もブラウザを閉じない（ログイン成功時のみ閉じる）
-                    if 'client' in locals() and hasattr(client, 'driver') and client.driver:
-                        st.info("エラーが発生しましたが、ブラウザは開いたままです。手動で確認してください。")
-                        st.session_state['recoru_client'] = client
+                    # エラー時はブラウザを閉じる
+                    if 'client' in locals():
+                        try:
+                            client.close()
+                            logger.info("エラー発生のため、ブラウザを閉じました")
+                        except Exception as close_error:
+                            logger.warning(f"ブラウザのクローズ中にエラー: {close_error}")
                 finally:
-                    # ログイン成功して処理が完了した場合のみブラウザを閉じる
-                    if login_success and 'client' in locals():
-                        client.close()
-                    elif 'client' in locals():
-                        # ログイン失敗やエラーの場合はブラウザを開いたまま
-                        pass
                     progress_bar.progress(1.0)
                     status_text.text("完了")
 

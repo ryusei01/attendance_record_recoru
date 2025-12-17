@@ -383,6 +383,72 @@ class RecoruClient:
                 except ValueError:
                     date_ymd = None
             
+            # 既に入力があるか確認（出勤時刻または退勤時刻が既に入力されている場合）
+            has_existing_input = False
+            try:
+                # 出勤時刻フィールドを確認
+                start_field = None
+                selectors = []
+                if date_ymd:
+                    selectors.extend([
+                        f"input.ID-worktimeStart-{date_ymd}-1",
+                        f"input[name*='worktimeStart'][name*='{date_ymd}']",
+                    ])
+                selectors.extend([
+                    "input[name*='worktimeStart']",
+                    "input.worktimeStart",
+                    "input[class*='worktimeStart']"
+                ])
+                
+                for selector in selectors:
+                    try:
+                        start_field = tr_element.find_element(By.CSS_SELECTOR, selector)
+                        break
+                    except NoSuchElementException:
+                        continue
+                
+                if start_field:
+                    start_value = start_field.get_attribute('value')
+                    if start_value and start_value.strip():
+                        has_existing_input = True
+                        self.logger.info(f"日 {day_int}: 出勤時刻に既に入力があります（{start_value}）。スキップします。")
+                
+                # 退勤時刻フィールドを確認
+                if not has_existing_input:
+                    end_field = None
+                    selectors = []
+                    if date_ymd:
+                        selectors.extend([
+                            f"input.ID-worktimeEnd-{date_ymd}-1",
+                            f"input[name*='worktimeEnd'][name*='{date_ymd}']",
+                        ])
+                    selectors.extend([
+                        "input[name*='worktimeEnd']",
+                        "input.worktimeEnd",
+                        "input[class*='worktimeEnd']"
+                    ])
+                    
+                    for selector in selectors:
+                        try:
+                            end_field = tr_element.find_element(By.CSS_SELECTOR, selector)
+                            break
+                        except NoSuchElementException:
+                            continue
+                    
+                    if end_field:
+                        end_value = end_field.get_attribute('value')
+                        if end_value and end_value.strip():
+                            has_existing_input = True
+                            self.logger.info(f"日 {day_int}: 退勤時刻に既に入力があります（{end_value}）。スキップします。")
+                
+            except Exception as e:
+                self.logger.warning(f"既存入力の確認中にエラー: {e}")
+            
+            # 既に入力がある場合はスキップ
+            if has_existing_input:
+                self.logger.info(f"日 {day_int}: 既に入力があるため、スキップしました")
+                return True
+            
             # 出勤区分を選択（出勤=1, 欠勤=2, 遅刻=6, 早退=7など）
             status = record.get('status', 'present')
             attend_id = None

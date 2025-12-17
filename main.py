@@ -165,15 +165,12 @@ def main():
             login_retry_interval=login_retry_interval
         )
         
-        login_success = False
         try:
             # ログイン
             if not client.login():
                 logger.error("ログインに失敗しました")
                 logger.info("ブラウザは開いたままです。手動で確認してください。")
                 return  # ブラウザを閉じずに終了
-            
-            login_success = True
             
             # 勤怠データ入力
             results = client.input_multiple_attendance(validation_result['valid_records'])
@@ -189,13 +186,17 @@ def main():
                 logger.warning("失敗したレコード:")
                 for failed in results['failed']:
                     logger.warning(f"  日付: {failed['date']}")
+            
+            logger.info("処理が完了しました。ブラウザは開いたままです。手動で確認してください。")
         
-        finally:
-            # ログイン成功時のみブラウザを閉じる
-            if login_success:
+        except Exception as e:
+            logger.error(f"処理中にエラーが発生しました: {e}", exc_info=True)
+            # エラー時はブラウザを閉じる
+            try:
                 client.close()
-            else:
-                logger.info("ログイン失敗のため、ブラウザは開いたままです。")
+                logger.info("エラー発生のため、ブラウザを閉じました")
+            except Exception as close_error:
+                logger.warning(f"ブラウザのクローズ中にエラー: {close_error}")
         
         logger.info("処理が完了しました")
     
