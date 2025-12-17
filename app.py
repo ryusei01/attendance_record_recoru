@@ -274,7 +274,7 @@ def main():
                                     if 'excel_preview' in debug_info:
                                         st.subheader("Excelデータプレビュー（最初の10行）")
                                         preview_df = pd.DataFrame(debug_info['excel_preview'])
-                                        st.dataframe(preview_df, use_container_width=True)
+                                        st.dataframe(preview_df, width='stretch')
                         else:
                             st.success(f"✅ {len(records)}件のレコードを抽出しました")
                             logger.info(f"抽出されたレコード: {records}")
@@ -326,6 +326,31 @@ def main():
                     axis=1
                 )
             
+            # 日付文字列を追加（表示用）
+            if 'day' in df.columns:
+                df['date'] = df.apply(
+                    lambda row: build_date_from_components(row.to_dict()) or 'N/A',
+                    axis=1
+                )
+            
+            # 強調表示用のスタイルを追加
+            def highlight_missing(row):
+                styles = [''] * len(row)
+                if row.get('missing_day', False):
+                    return ['background-color: #ffcccc'] * len(row)  # 赤色（日付欠落）
+                elif row.get('missing_weekday', False):
+                    return ['background-color: #ffffcc'] * len(row)  # 黄色（曜日欠落）
+                return [''] * len(row)
+            
+            # 強調表示が必要な行を確認
+            has_missing = False
+            if 'missing_day' in df.columns:
+                has_missing = df['missing_day'].any() or has_missing
+            if 'missing_weekday' in df.columns:
+                has_missing = df['missing_weekday'].any() or has_missing
+            
+            if has_missing:
+                st.warning("⚠️ 強調表示: 🔴赤色=日付が取得できませんでした, 🟡黄色=曜日が取得できませんでした")
             
             st.subheader("データの編集")
             st.info("💡 以下の表でデータを直接編集できます。編集後は「変更を保存」ボタンをクリックしてください。")
@@ -367,11 +392,25 @@ def main():
                         disabled=True
                     )
             
+            # 強調表示用のスタイルを適用（data_editorでは直接スタイル適用できないため、事前に表示）
+            if has_missing:
+                # 強調表示が必要な行を表示
+                missing_day_df = df[df.get('missing_day', False) == True] if 'missing_day' in df.columns else pd.DataFrame()
+                missing_weekday_df = df[(df.get('missing_weekday', False) == True) & (df.get('missing_day', False) != True)] if 'missing_weekday' in df.columns else pd.DataFrame()
+                
+                if not missing_day_df.empty:
+                    st.error(f"🔴 日付が取得できなかったレコード ({len(missing_day_df)}件):")
+                    st.dataframe(missing_day_df[['day', 'weekday', 'start_time', 'end_time', 'status']], width='stretch')
+                
+                if not missing_weekday_df.empty:
+                    st.warning(f"🟡 曜日が取得できなかったレコード ({len(missing_weekday_df)}件):")
+                    st.dataframe(missing_weekday_df[['day', 'weekday', 'start_time', 'end_time', 'status']], width='stretch')
+            
             # データエディターで編集
             edited_df = st.data_editor(
                 df,
                 column_config=column_config,
-                use_container_width=True,
+                width='stretch',
                 num_rows="fixed",
                 key="data_editor"
             )

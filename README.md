@@ -11,6 +11,10 @@
 - レコルへの自動ログインと勤怠データ入力
 - データプレビューと編集機能
 - 処理ログの表示
+- ログイン失敗時の自動リトライ機能
+- 既に入力がある場合のスキップ機能
+- Chrome プロファイルパスの指定（ログイン状態の保持）
+- Recoru の URL 指定機能
 
 ## AI 技術について
 
@@ -141,13 +145,28 @@ cp config.json.example config.json
 
 ```json
 {
+  "ocr": {
+    "poppler_path": "C:\\poppler\\Library\\bin"
+  },
   "recoru": {
     "contract_id": "your_contract_id",
     "login_id": "your_login_id",
-    "password": "your_password"
+    "password": "your_password",
+    "base_url": "https://app.recoru.in/ap/menuAttendance/?ui=362&pp=1",
+    "profile_path": "H:\\document\\program\\project\\attendance_record_recoru\\chrome_profile",
+    "login_retry_count": 3,
+    "login_retry_interval": 5
   }
 }
 ```
+
+**設定項目の説明**:
+
+- `ocr.poppler_path`: Poppler の bin ディレクトリパス（PDF 処理時に使用、PATH に通していない場合のみ必要）
+- `recoru.base_url`: Recoru の勤怠入力ページ URL（デフォルト: `https://app.recoru.in/ap/menuAttendance/?ui=362&pp=1`）
+- `recoru.profile_path`: Chrome のプロファイルパス（ログイン状態を保持する場合に使用、空の場合はデフォルトプロファイル）
+- `recoru.login_retry_count`: ログイン失敗時のリトライ回数（デフォルト: 3 回）
+- `recoru.login_retry_interval`: ログインリトライ間隔（秒、デフォルト: 5 秒）
 
 **注意**: `config.json`は`.gitignore`に含まれているため、Git にコミットされません。
 
@@ -178,6 +197,12 @@ python main.py --file path/to/attendance.xlsx --validate-only
 
 # ヘッドレスモードで実行
 python main.py --file path/to/attendance.xlsx --headless
+
+# RecoruのURLを指定
+python main.py --file path/to/attendance.xlsx --url "https://app.recoru.in/ap/menuAttendance/?ui=362&pp=1"
+
+# Chromeプロファイルパスを指定
+python main.py --file path/to/attendance.xlsx --profile "C:\\Users\\username\\AppData\\Local\\Google\\Chrome\\User Data"
 ```
 
 ## プロジェクト構造
@@ -232,6 +257,8 @@ python main.py --file attendance_2024_01.xlsx
 - 契約 ID、ログイン ID、パスワードが正しいか確認
 - レコルの UI が変更されている可能性があります（セレクターの調整が必要）
 - ネットワーク接続を確認
+- ログイン失敗時は自動的にリトライされます（デフォルト: 3 回、5 秒間隔）
+- ログイン失敗時はブラウザが開いたままになるため、手動で確認できます
 
 ### Selenium 関連のエラー
 
@@ -245,6 +272,8 @@ python main.py --file attendance_2024_01.xlsx
 - パスワードなどの機密情報は適切に管理してください
 - OCR の認識精度は画像の品質に依存します
 - レコルの UI 変更により動作しなくなる可能性があります
+- 既に入力がある日付は自動的にスキップされます（上書きしません）
+- 正常に処理が完了した場合、ブラウザは開いたままになります（手動で確認可能）
 
 ## ライセンス
 

@@ -449,21 +449,8 @@ class RecoruClient:
                 self.logger.info(f"日 {day_int}: 既に入力があるため、スキップしました")
                 return True
             
-            # 出勤区分を選択（出勤=1, 欠勤=2, 遅刻=6, 早退=7など）
-            status = record.get('status', 'present')
-            attend_id = None
-            if status == 'off':
-                attend_id = '2'  # 欠勤
-            elif status == 'present' and record.get('start_time') and record.get('end_time'):
-                attend_id = '1'  # 出勤
-            elif status == 'partial':
-                # 出勤時刻のみの場合は遅刻、退勤時刻のみの場合は早退
-                if record.get('start_time') and not record.get('end_time'):
-                    attend_id = '6'  # 遅刻
-                elif record.get('end_time') and not record.get('start_time'):
-                    attend_id = '7'  # 早退
-                else:
-                    attend_id = '1'  # デフォルトは出勤
+            # 出勤区分を選択（常に「1」（出勤）を選択）
+            attend_id = '1'  # 出勤
             
             if attend_id:
                 try:
