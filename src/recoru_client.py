@@ -43,6 +43,37 @@ class RecoruClient:
         self.driver = None
         self.logger = logging.getLogger(__name__)
     
+    def _close_existing_chrome(self, profile_path: str):
+        """
+        既存のChromeインスタンスを閉じる（プロファイルが使用中の場合）
+        ロックファイルを削除するだけ（他のChromeウィンドウには影響しない）
+        
+        Args:
+            profile_path: Chromeプロファイルのパス
+        """
+        import os
+        import platform
+        
+        # ロックファイルをチェック（Windowsの場合）
+        if platform.system() == 'Windows':
+            lock_file = os.path.join(profile_path, 'Default', 'lockfile')
+            if os.path.exists(lock_file):
+                self.logger.info(f"既存のChromeインスタンスが検出されました（ロックファイル: {lock_file}）")
+                try:
+                    # ロックファイルを削除（これによりプロファイルが解放される）
+                    # 注意: この方法では、実際のChromeプロセスは終了しませんが、
+                    # プロファイルのロックが解除されるため、新しいセッションを開始できます
+                    # 他のChromeウィンドウには影響しません
+                    os.remove(lock_file)
+                    self.logger.info("ロックファイルを削除しました（プロファイルが解放されました）")
+                    time.sleep(1)  # ロック解除を待つ
+                except PermissionError:
+                    # ロックファイルが使用中の場合（Chromeが起動中）
+                    self.logger.warning("ロックファイルが使用中のため削除できませんでした。Chromeが起動中の可能性があります。")
+                    self.logger.info("プロファイルを使用しているChromeウィンドウを手動で閉じてください。")
+                except Exception as e:
+                    self.logger.warning(f"ロックファイルの削除中にエラー: {e}")
+    
     def _setup_driver(self):
         """Seleniumドライバーをセットアップ"""
         chrome_options = Options()
@@ -59,6 +90,9 @@ class RecoruClient:
             import os
             profile_path = os.path.expandvars(os.path.expanduser(str(self.profile_path)))
             if os.path.exists(profile_path):
+                # 既存のChromeインスタンスを閉じる
+                self._close_existing_chrome(profile_path)
+                
                 chrome_options.add_argument(f'--user-data-dir={profile_path}')
                 # デフォルトプロファイルを使用する場合
                 chrome_options.add_argument('--profile-directory=Default')
@@ -73,6 +107,38 @@ class RecoruClient:
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.driver.maximize_window()
     
+    def _is_login_page(self) -> bool:
+        """
+        現在のページがRecoRUのログインページかどうかを確認
+        
+        Returns:
+            ログインページの場合True、そうでない場合False
+        """
+        try:
+            current_url = self.driver.current_url
+            # URLがログインページかどうかを確認
+            if "app.recoru.in" not in current_url:
+                return False
+            
+            # ログインフォームの存在を確認
+            try:
+                login_form = self.driver.find_element(By.ID, "loginForm")
+                if login_form:
+                    return True
+            except NoSuchElementException:
+                pass
+            
+            # URLパターンで確認
+            if "/ap/home/" in current_url or "/home/" in current_url:
+                # ページソースにログインフォームが含まれているか確認
+                if "loginForm" in self.driver.page_source or "contractId" in self.driver.page_source:
+                    return True
+            
+            return False
+        except Exception as e:
+            self.logger.warning(f"ログインページの確認中にエラー: {e}")
+            return False
+    
     def _attempt_login(self) -> bool:
         """
         ログイン試行（1回）
@@ -84,9 +150,24 @@ class RecoruClient:
             if not self.driver:
                 self._setup_driver()
             
-            # ログインページにアクセス
-            self.logger.info("レコルのログインページにアクセス中...")
-            self.driver.get("https://app.recoru.in/ap/home/")
+            # 現在のURLがログインページかどうかを確認
+            login_url = "https://app.recoru.in/ap/home/"
+            current_url = self.driver.current_url if self.driver else None
+            
+            # base_urlが指定されている場合は、まずそのURLに遷移
+            if self.base_url:
+                self.logger.info(f"指定されたURLに遷移: {self.base_url}")
+                self.driver.get(self.base_url)
+                time.sleep(2)  # ページ読み込みを待つ
+                current_url = self.driver.current_url
+            
+            # 現在のページがログインページでない場合は、ログインページに遷移
+            if not self._is_login_page():
+                self.logger.info(f"現在のURL ({current_url}) がログインページではないため、ログインページに遷移します")
+                self.driver.get(login_url)
+                time.sleep(2)  # ページ読み込みを待つ
+            else:
+                self.logger.info(f"現在のURL ({current_url}) はログインページです")
             
             # ページが読み込まれるまで待機
             wait = WebDriverWait(self.driver, 30)
@@ -204,6 +285,14 @@ class RecoruClient:
             # URLが変更されたか、ログインフォームが消えた場合は成功
             if "home" in current_url.lower() or "main" in current_url.lower() or current_url != "https://app.recoru.in/ap/home/":
                 self.logger.info("ログインに成功しました")
+                
+                # base_urlが指定されている場合で、現在のURLがbase_urlと異なる場合は遷移
+                if self.base_url and self.base_url not in current_url:
+                    self.logger.info(f"指定されたURLに遷移: {self.base_url}")
+                    self.driver.get(self.base_url)
+                    time.sleep(2)  # ページ読み込みを待つ
+                    self.logger.info(f"URL遷移完了: {self.driver.current_url}")
+                
                 return True
             else:
                 # ログインフォームが消えているか確認
@@ -211,9 +300,25 @@ class RecoruClient:
                     login_form = self.driver.find_element(By.ID, "loginForm")
                     if not login_form.is_displayed():
                         self.logger.info("ログインに成功しました（ログインフォームが非表示になりました）")
+                        
+                        # base_urlが指定されている場合で、現在のURLがbase_urlと異なる場合は遷移
+                        if self.base_url and self.base_url not in current_url:
+                            self.logger.info(f"指定されたURLに遷移: {self.base_url}")
+                            self.driver.get(self.base_url)
+                            time.sleep(2)  # ページ読み込みを待つ
+                            self.logger.info(f"URL遷移完了: {self.driver.current_url}")
+                        
                         return True
                 except NoSuchElementException:
                     self.logger.info("ログインに成功しました（ログインフォームが見つかりませんでした）")
+                    
+                    # base_urlが指定されている場合で、現在のURLがbase_urlと異なる場合は遷移
+                    if self.base_url and self.base_url not in current_url:
+                        self.logger.info(f"指定されたURLに遷移: {self.base_url}")
+                        self.driver.get(self.base_url)
+                        time.sleep(2)  # ページ読み込みを待つ
+                        self.logger.info(f"URL遷移完了: {self.driver.current_url}")
+                    
                     return True
                 
                 self.logger.error("ログインに失敗しました")
@@ -232,6 +337,17 @@ class RecoruClient:
         """
         for attempt in range(1, self.login_retry_count + 1):
             self.logger.info(f"ログイン試行 {attempt}/{self.login_retry_count}")
+            
+            # リトライ時は既存のドライバーを閉じてから新しいドライバーを作成
+            if attempt > 1 and self.driver:
+                try:
+                    self.logger.info("リトライのため、既存のブラウザを閉じます")
+                    self.driver.quit()
+                    self.driver = None
+                    time.sleep(1)  # ドライバー終了を待つ
+                except Exception as e:
+                    self.logger.warning(f"既存のブラウザのクローズ中にエラー: {e}")
+                    self.driver = None
             
             if self._attempt_login():
                 self.logger.info("ログインに成功しました")
